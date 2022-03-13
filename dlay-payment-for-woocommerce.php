@@ -135,7 +135,7 @@ function dlay_payment_init(){
 				$longest_period = 1;
 				foreach ( $items as $item ) {
 					$product = $item->get_product();
-					array_push($products,$product);
+					
 					//check if this is a variation
 					if ( 'variation' === $product->get_type() ) {
 						$variation_id = $item->get_variation_id();
@@ -148,8 +148,14 @@ function dlay_payment_init(){
 								}
 							}
 						}
+					}else{
+						$value = $product->get_attribute( 'period' );
+						if(intval($value) > $longest_period){
+							$longest_period = intval($value);
+						}
 					}
 				}
+					
                 // Construct variables for post
                 $this->data_to_send = array(
                     // Merchant details
