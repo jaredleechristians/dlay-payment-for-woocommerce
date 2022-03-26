@@ -1,10 +1,10 @@
 <?php 
 /**
-* Plugin Name: Dlay Payments for woocommerce
-* Plugin URI:
+* Plugin Name: DLAY Payments for woocommerce
+* Plugin URI: https://dlay.co.za
 * Author Name: Jared Christians
-* Author URI: 
-* Description: Allows for dlay payment system
+* Author URI: https://www.linkedin.com/in/jaredchristians/
+* Description: Allows for DLAY payment system
 * Version: 0.1.0
  */
 
@@ -17,8 +17,8 @@ function dlay_payment_init(){
          class WC_Dlay_Gateway extends WC_Payment_Gateway{
             public function __construct(){
                 $this->id = 'dlay';
-                $this->method_title = __('Dlay', 'dlay-pay-woo');
-                $this->method_description = __('dlay payment system', 'dlay-pay-woo');
+                $this->method_title = __('DLAY', 'dlay-pay-woo');
+                $this->method_description = __('DLAY payment system', 'dlay-pay-woo');
                 $this->init_form_fields();
                 $this->init_settings();
                 $this->has_fields = false;
@@ -31,19 +31,20 @@ function dlay_payment_init(){
                     'products',
                 );
 
-                $this->url = 'https://dlay-sandbox.robotweb.co.za/';
+                $this->url = 'https://dlay-sandbox.robotweb.co.za/'; # payment processor
                 $this->response_url = add_query_arg( 'wc-api', 'Dlay_Handler', home_url( '/' ) );
 
                 add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
                 add_action( 'woocommerce_receipt_dlay', array( $this, 'receipt_page' ) );
               
-              	// Setup default merchant data.
+              	// Setup merchant data.
 				$this->merchant_code      = $this->get_option( 'merchant_code' );
-              
-              	// Setup the test data, if in test mode.
-                if ( 'yes' === $this->get_option( 'testmode' ) ) {
-                    $this->url          = 'https://dlay-sandbox.robotweb.co.za/';
-                }
+				$this->merchant_name      = $this->get_option( 'merchant_name' );
+				if($this->get_option( 'sandbox' ) == "yes"){
+					$this->api = "https://app-uat.dlay.co.za";
+				}else{
+					$this->api = "https://app.dlay.co.za";
+				}
 				
 				add_action( 'woocommerce_api_dlay_handler', array( $this, 'handler' ) );
 
@@ -52,25 +53,30 @@ function dlay_payment_init(){
 			public function handler(){
 				header( 'HTTP/1.1 200 OK');
 				$content = file_get_contents("php://input");
-				$order_id = isset($_REQUEST['order_id']) ? $_REQUEST['order_id'] : null;
+				$order_key = isset($_REQUEST['key']) ? $_REQUEST['key'] : null;
+				$order_id = wc_get_order_id_by_order_key( $order_key );
 				$order = wc_get_order($order_id);
 				if (is_null($order_id)) return;
 				$json = json_decode($content);
 				$msg = $content;
 				$status = $json->setup_status;
-				$note = str_replace("{","",$content);
-				$note = str_replace("}","",$note);
-				$note = str_replace('"',"",$note);
+
 				if($status == "OK"){
 					$order->payment_complete();
 					wc_reduce_stock_levels($order_id);
-					$order->add_order_note($note);
-					$order->save();
 				}else{
 					$order->update_status('failed');
-					$order->add_order_note( $note );
-					$order->save();
 				}
+				$order->add_order_note( $content );
+				$order->update_meta_data( 'ammacom_id', $json->ammacom_id );
+				$order->update_meta_data( 'transaction_id', $json->transaction_id );
+				$order->update_meta_data( 'setup_status', $json->setup_status );
+				$order->update_meta_data( 'setup_message', $json->setup_message );
+				$order->update_meta_data( 'merchant_code', $this->get_option( 'merchant_code' ) );
+				$order->update_meta_data( 'api', $this->api );
+				$order->save();
+				
+				//mail("jared@robotweb.co.za","Test Callback",$msg);
 
 			}
 
@@ -79,16 +85,22 @@ function dlay_payment_init(){
                     'woo_dlay_pay_fields', array(
                         'enabled' => array(
                             'title'       => __( 'Enable/Disable', 'dlay-pay-woo' ),
-                            'label'       => __( 'Enable dlay', 'dlay-pay-woo' ),
+                            'label'       => __( 'Enable DLAY', 'dlay-pay-woo' ),
                             'type'        => 'checkbox',
                             'description' => __( 'This controls whether or not this gateway is enabled within WooCommerce.', 'dlay-pay-woo' ),
                             'default'     => '',
+                        ),
+						'sandbox' => array(
+						'title'       => __( 'Enable Sandbox', 'dlay-pay-woo' ),
+						'type'        => 'checkbox',
+						'description' => __( 'Place the payment gateway in development mode.', 'dlay-pay-woo' ),
+						'default'     => 'true',
                         ),
                         'title' => array(
                             'title'       => __( 'Title', 'dlay-pay-woo' ),
                             'type'        => 'text',
                             'description' => __( 'This controls the title which the user sees during checkout.', 'dlay-pay-woo' ),
-                            'default'     => __( 'Dlay', 'dlay-pay-woo' ),
+                            'default'     => __( 'DLAY', 'dlay-pay-woo' ),
                             'desc_tip'    => true,
                         ),
                         'description' => array(
@@ -98,19 +110,18 @@ function dlay_payment_init(){
                             'default'     => '',
                             'desc_tip'    => true,
                         ),
-                        'testmode' => array(
-                            'title'       => __( 'Sandbox', 'dlay-pay-woo' ),
-                            'type'        => 'checkbox',
-                            'description' => __( 'Place the payment gateway in development mode.', 'dlay-pay-woo' ),
-                            'default'     => 'true',
+						'merchant_name' => array(
+                            'title'       => __( 'Merchant Name', 'dlay-pay-woo' ),
+                            'type'        => 'text',
+                            'description' => __( 'This is the merchant name, shown on DLAY payment platform.', 'dlay-pay-woo' ),
+                            'default'     => '',
                         ),
                         'merchant_code' => array(
                             'title'       => __( 'Merchant Code', 'dlay-pay-woo' ),
                             'type'        => 'text',
-                            'description' => __( 'This is the merchant code, received from dlay.', 'dlay-pay-woo' ),
+                            'description' => __( 'This is the merchant code, received from DLAY.', 'dlay-pay-woo' ),
                             'default'     => '',
-                        ),
-
+                        )
                     )
                 );
             }
@@ -164,14 +175,15 @@ function dlay_payment_init(){
                   	'mobile'			=> $order->get_billing_phone(),
                   	'email'				=> $order->get_billing_email(),
                   	'merchant_code'	   	=> $this->merchant_code,
+					'merchant_name'	   	=> $this->merchant_name,
                     'amount'			=> $order->get_total(),
 					'period'			=> $longest_period,
-					//'products'			=> $products,
                   	'transaction_id'	=> get_bloginfo( 'name' ) . " order #" . $order_id,
                     'return_url'       	=> $this->get_return_url( $order ),
                     'cancel_url'       	=> $order->get_cancel_order_url(),
-                    'notify_url'       	=> $this->response_url . "&order_id=".$order_id,
-                    
+                    'notify_url'       	=> $this->response_url . "&key=".$order->get_order_key(),
+					'sandbox'			=> $this->get_option( 'sandbox' ),
+					'api'				=> $this->api
                 );
                         
                 $dlay_args_array = array();
@@ -182,9 +194,7 @@ function dlay_payment_init(){
                     }
                     $dlay_args_array[] = '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '" />';
                 }
-                //print_r($order);
-                //print_r($this->data_to_send);
-				//echo json_encode($dlay_args_array);
+
                 return '<form action="' . esc_url( $this->url ) . '" method="post" id="payment_form">
                         ' . implode( '', $dlay_args_array ) . '
                         <input type="submit" class="button-alt" id="submit_payment_form" value="' . __( 'Pay via Dlay', 'dlay-pay-woo' ) . '" /> 
@@ -227,5 +237,33 @@ function dlay_payment_init(){
     $gateways[] = 'WC_Dlay_Gateway';
     return $gateways;
  }
+
+// define the woocommerce_order_status_changed callback 
+function action_woocommerce_order_status_changed($order_id, $old_status, $new_status) {
+	if ( $new_status == "completed" ) {
+		
+		$order = wc_get_order( $order_id );
+		$transaction_id = $order->get_meta("transaction_id");
+		$ammacom_id = $order->get_meta("ammacom_id");
+		$merchant_code = $order->get_meta("merchant_code");
+		$api = $order->get_meta("api") . "/server/api/conc-sub-setup";
+		$status = "COMPLETE";
+		$json = json_encode(array("transaction_id"=>$transaction_id,
+					  "ammacom_id"=>$ammacom_id,
+					  "merchant_code"=>$merchant_code,
+					  "status"=>$status,"api"=>$api));
+		
+		$url = "https://dlay-sandbox.robotweb.co.za/conclude/"; # payment conclude
+		$ch = curl_init( $url );
+		curl_setopt( $ch, CURLOPT_POSTFIELDS, $json );
+		curl_setopt( $ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json','Accept: application/json'));
+		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+		$result = curl_exec($ch);
+		curl_close($ch);
+		$order->add_order_note( $result );
+        //mail("jared@robotweb.co.za","Test Callback",$result);
+    }
+}; 
+add_action( 'woocommerce_order_status_changed', 'action_woocommerce_order_status_changed', 10, 4 );
 
  
