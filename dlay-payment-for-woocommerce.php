@@ -31,7 +31,7 @@ function dlay_payment_init(){
                     'products',
                 );
 
-                $this->url = 'https://dlay-sandbox.robotweb.co.za/'; # payment processor
+                $this->url = 'https://pay.dlay.co.za/'; # payment processor
                 $this->response_url = add_query_arg( 'wc-api', 'Dlay_Handler', home_url( '/' ) );
 
                 add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
@@ -253,7 +253,7 @@ function action_woocommerce_order_status_changed($order_id, $old_status, $new_st
 					  "merchant_code"=>$merchant_code,
 					  "status"=>$status,"api"=>$api));
 		
-		$url = "https://dlay-sandbox.robotweb.co.za/conclude/"; # payment conclude
+		$url = "https://pay.dlay.co.za/conclude/"; # payment conclude
 		$ch = curl_init( $url );
 		curl_setopt( $ch, CURLOPT_POSTFIELDS, $json );
 		curl_setopt( $ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json','Accept: application/json'));
