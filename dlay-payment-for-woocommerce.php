@@ -22,7 +22,7 @@ function dlay_payment_init(){
                 $this->init_form_fields();
                 $this->init_settings();
                 $this->has_fields = false;
-                $this->icon = WP_PLUGIN_URL . '/dlay-payment-for-woocommerce/assets/images/icon.png';
+                $this->icon = WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png';
                 $this->title = $this->get_option( 'title' );
                 $this->description = $this->get_option( 'description' );
                 $this->available_countries  = array( 'ZA' );
