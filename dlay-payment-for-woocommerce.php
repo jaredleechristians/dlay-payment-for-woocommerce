@@ -258,6 +258,24 @@ function dlay_payment_init(){
     return $gateways;
  }
 
+function woocommerce_dlay_plugin_links( $links ) {
+	$settings_url = add_query_arg(
+		array(
+			'page' => 'wc-settings',
+			'tab' => 'checkout',
+			'section' => 'dlay',
+		),
+		admin_url( 'admin.php' )
+	);
+
+	$plugin_links = array(
+		'<a href="' . esc_url( $settings_url ) . '">' . __( 'Settings', 'woocommerce-gateway-dlay' ) . '</a>',
+	);
+
+	return array_merge( $plugin_links, $links );
+}
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'woocommerce_dlay_plugin_links' );
+
 // define the woocommerce_order_status_changed callback 
 function action_woocommerce_order_status_changed($order_id, $old_status, $new_status) {
 	if ( $new_status == "completed" ) {
