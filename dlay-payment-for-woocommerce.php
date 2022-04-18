@@ -31,7 +31,8 @@ function dlay_payment_init(){
                     'products',
                 );
 
-                $this->url = 'https://pay.dlay.co.za/'; # payment processor
+                $this->url = 'https://pay.dlay.co.za'; // payment processor
+				//$this->url = 'https://dlay-sandbox.robotweb.co.za'; // robotweb sandbox payment processor
                 $this->response_url = add_query_arg( 'wc-api', 'Dlay_Handler', home_url( '/' ) );
 
                 add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
@@ -76,8 +77,6 @@ function dlay_payment_init(){
 				$order->update_meta_data( 'api', $this->api );
 				$order->save();
 				
-				//mail("jared@robotweb.co.za","Test Callback",$msg);
-
 			}
 
             public function init_form_fields(){
@@ -95,6 +94,11 @@ function dlay_payment_init(){
 						'type'        => 'checkbox',
 						'description' => __( 'Place the payment gateway in development mode.', 'dlay-pay-woo' ),
 						'default'     => 'true',
+                        ),'rental' => array(
+						'title'       => __( 'Enable Rental', 'dlay-pay-woo' ),
+						'type'        => 'checkbox',
+						'description' => __( 'Place the payment gateway in rental mode.', 'dlay-pay-woo' ),
+						'default'     => 'false',
                         ),
                         'title' => array(
                             'title'       => __( 'Title', 'dlay-pay-woo' ),
@@ -144,8 +148,18 @@ function dlay_payment_init(){
 				$items = $order->get_items();
 				$products = array();
 				$longest_period = 1;
+				$product_name = "";
+				$product_url = "";
+				
+					
 				foreach ( $items as $item ) {
+					$object = new stdClass();
 					$product = $item->get_product();
+					$object->product_name = $item->get_name();
+					$object->product_image = wp_get_attachment_url( $product->get_image_id() );
+					$object->product_code = $product->get_sku();
+					
+					array_push($products,$object);
 					
 					//check if this is a variation
 					if ( 'variation' === $product->get_type() ) {
@@ -183,8 +197,14 @@ function dlay_payment_init(){
                     'cancel_url'       	=> $order->get_cancel_order_url(),
                     'notify_url'       	=> $this->response_url . "&key=".$order->get_order_key(),
 					'sandbox'			=> $this->get_option( 'sandbox' ),
-					'api'				=> $this->api
+					'rental'			=> $this->get_option( 'rental' ),
+					'api'				=> $this->api,
+					'products'			=> json_encode($products)
                 );
+				
+				if($this->get_option( 'rental' ) == "yes"){
+					$this->url = $this->url . "/rent/";
+				}
                         
                 $dlay_args_array = array();
                 $sign_strings = array();
@@ -261,7 +281,6 @@ function action_woocommerce_order_status_changed($order_id, $old_status, $new_st
 		$result = curl_exec($ch);
 		curl_close($ch);
 		$order->add_order_note( $result );
-        //mail("jared@robotweb.co.za","Test Callback",$result);
     }
 }; 
 add_action( 'woocommerce_order_status_changed', 'action_woocommerce_order_status_changed', 10, 4 );
