@@ -69,6 +69,7 @@ function dlay_payment_init(){
 					$order->update_status('failed');
 				}
 				$order->add_order_note( $content );
+				$order->update_meta_data( 'serial', "" );
 				$order->update_meta_data( 'ammacom_id', $json->ammacom_id );
 				$order->update_meta_data( 'transaction_id', $json->transaction_id );
 				$order->update_meta_data( 'setup_status', $json->setup_status );
@@ -284,10 +285,12 @@ function action_woocommerce_order_status_changed($order_id, $old_status, $new_st
 		$transaction_id = $order->get_meta("transaction_id");
 		$ammacom_id = $order->get_meta("ammacom_id");
 		$merchant_code = $order->get_meta("merchant_code");
+		$serial = $order->get_meta("serial");
 		$api = $order->get_meta("api") . "/server/api/conc-sub-setup";
 		$status = "COMPLETE";
 		$json = json_encode(array("transaction_id"=>$transaction_id,
 					  "ammacom_id"=>$ammacom_id,
+					  "serial" => $serial,
 					  "merchant_code"=>$merchant_code,
 					  "status"=>$status,"api"=>$api));
 		
