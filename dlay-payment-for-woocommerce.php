@@ -5,7 +5,7 @@
 * Author Name: Jared Christians
 * Author URI: https://www.linkedin.com/in/jaredchristians/
 * Description: Allows for DLAY payment system
-* Version: 0.1.0
+* Version: 0.1.1
  */
 
 if( ! in_array('woocommerce/woocommerce.php', apply_filters('active_plugins',get_option('active_plugins')))) return;
@@ -61,10 +61,19 @@ function dlay_payment_init(){
 				$json = json_decode($content);
 				$msg = $content;
 				$status = $json->setup_status;
+				$status_message = $json->setup_message;
 
 				if($status == "OK"){
-					$order->payment_complete();
-					wc_reduce_stock_levels($order_id);
+					if($status_message == "Subscription setup successfully."){
+						$order->payment_complete();
+						wc_reduce_stock_levels($order_id);
+					}elseif($status_message == "Vetting Approved"){
+						$order->update_status('wc-approved');
+					}elseif($status_message == "Vetting Approved (Cheaper Deal)"){
+						$order->update_status('wc-approved-cheaper-deal');
+					}elseif($status_message == "Vetting Declined"){
+						$order->update_status('wc-declined');
+					}
 				}else{
 					$order->update_status('failed');
 				}
@@ -151,6 +160,7 @@ function dlay_payment_init(){
 				$longest_period = 1;
 				$product_name = "";
 				$product_url = "";
+				$monthly_fee = 0;
 				
 					
 				foreach ( $items as $item ) {
@@ -159,6 +169,10 @@ function dlay_payment_init(){
 					$object->product_name = $item->get_name();
 					$object->product_image = wp_get_attachment_url( $product->get_image_id() );
 					$object->product_code = $product->get_sku();
+					$fee = intval($product->get_attribute( 'monthly_fee' ));
+					$object->monthly_fee = $fee;
+					
+					$monthly_fee += $fee;
 					
 					array_push($products,$object);
 					
@@ -200,7 +214,8 @@ function dlay_payment_init(){
 					'sandbox'			=> $this->get_option( 'sandbox' ),
 					'rental'			=> $this->get_option( 'rental' ),
 					'api'				=> $this->api,
-					'products'			=> json_encode($products)
+					'products'			=> json_encode($products),
+					'monthly_fee'		=> $monthly_fee
                 );
 				
 				if($this->get_option( 'rental' ) == "yes"){
@@ -305,6 +320,46 @@ function action_woocommerce_order_status_changed($order_id, $old_status, $new_st
     }
 }; 
 add_action( 'woocommerce_order_status_changed', 'action_woocommerce_order_status_changed', 10, 4 );
-add_filter('acf/settings/remove_wp_meta_box', '__return_false');
 
- 
+add_action( 'init', 'register_my_new_order_statuses' );
+
+function register_my_new_order_statuses() {
+    register_post_status( 'wc-approved', array(
+        'label'                     => _x( 'Approved', 'Order status', 'woocommerce' ),
+        'public'                    => true,
+        'exclude_from_search'       => false,
+        'show_in_admin_all_list'    => true,
+        'show_in_admin_status_list' => true,
+        'label_count'               => _n_noop( 'Approved <span class="count">(%s)</span>', 'Approved<span class="count">(%s)</span>', 'woocommerce' )
+    ) );
+	
+	register_post_status( 'wc-approved-cheaper-deal', array(
+        'label'                     => _x( 'Approved (Cheaper Deal)', 'Order status', 'woocommerce' ),
+        'public'                    => true,
+        'exclude_from_search'       => false,
+        'show_in_admin_all_list'    => true,
+        'show_in_admin_status_list' => true,
+        'label_count'               => _n_noop( 'Approved (Cheaper Deal)<span class="count">(%s)</span>', 'Approved (Cheaper Deal)<span class="count">(%s)</span>', 'woocommerce' )
+    ) );
+	
+	register_post_status( 'wc-declined', array(
+        'label'                     => _x( 'Declined', 'Order status', 'woocommerce' ),
+        'public'                    => true,
+        'exclude_from_search'       => false,
+        'show_in_admin_all_list'    => true,
+        'show_in_admin_status_list' => true,
+        'label_count'               => _n_noop( 'Declined<span class="count">(%s)</span>', 'Declined<span class="count">(%s)</span>', 'woocommerce' )
+    ) );
+}
+
+add_filter( 'wc_order_statuses', 'my_new_wc_order_statuses' );
+
+// Register in wc_order_statuses.
+function my_new_wc_order_statuses( $order_statuses ) {
+    $order_statuses['wc-approved'] = _x( 'Approved', 'Order status', 'woocommerce' );
+	$order_statuses['wc-approved-cheaper-deal'] = _x( 'Approved (Cheaper Deal)', 'Order status', 'woocommerce' );
+	$order_statuses['wc-declined'] = _x( 'Declined', 'Order status', 'woocommerce' );
+
+    return $order_statuses;
+}
+add_filter('acf/settings/remove_wp_meta_box', '__return_false');
