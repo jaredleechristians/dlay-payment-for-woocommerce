@@ -305,5 +305,6 @@ function action_woocommerce_order_status_changed($order_id, $old_status, $new_st
     }
 }; 
 add_action( 'woocommerce_order_status_changed', 'action_woocommerce_order_status_changed', 10, 4 );
+add_filter('acf/settings/remove_wp_meta_box', '__return_false');
 
  
