@@ -63,16 +63,17 @@ function dlay_payment_init(){
 				$status = $json->setup_status;
 				$status_message = $json->setup_message;
 
-				if($status == "OK"){
-					if($status_message == "Subscription setup successfully."){
-						$order->payment_complete();
-						wc_reduce_stock_levels($order_id);
-					}elseif($status_message == "Vetting Approved"){
+				if($status == "OK"){				
+					if($status_message == "Vetting Approved"){
 						$order->update_status('wc-approved');
 					}elseif($status_message == "Vetting Approved (Cheaper Deal)"){
 						$order->update_status('wc-approved-cheaper-deal');
 					}elseif($status_message == "Vetting Declined"){
 						$order->update_status('wc-declined');
+					}else{
+						$order->update_status('processing');
+						$order->payment_complete();
+						wc_reduce_stock_levels($order_id);
 					}
 				}else{
 					$order->update_status('failed');
@@ -363,3 +364,5 @@ function my_new_wc_order_statuses( $order_statuses ) {
     return $order_statuses;
 }
 add_filter('acf/settings/remove_wp_meta_box', '__return_false');
+
+ 
