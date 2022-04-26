@@ -66,8 +66,8 @@ function dlay_payment_init(){
 				if($status == "OK"){				
 					if($status_message == "Vetting Approved"){
 						$order->update_status('wc-approved');
-					}elseif($status_message == "Vetting Approved (Cheaper Deal)"){
-						$order->update_status('wc-approved-cheaper-deal');
+					}elseif($status_message == "Cheaper Deal"){
+						$order->update_status('wc-cheaper');
 					}elseif($status_message == "Vetting Declined"){
 						$order->update_status('wc-declined');
 					}else{
@@ -334,7 +334,7 @@ function register_my_new_order_statuses() {
         'label_count'               => _n_noop( 'Approved <span class="count">(%s)</span>', 'Approved<span class="count">(%s)</span>', 'woocommerce' )
     ) );
 	
-	register_post_status( 'wc-approved-cheaper-deal', array(
+	register_post_status( 'wc-cheaper', array(
         'label'                     => _x( 'Approved (Cheaper Deal)', 'Order status', 'woocommerce' ),
         'public'                    => true,
         'exclude_from_search'       => false,
@@ -358,7 +358,7 @@ add_filter( 'wc_order_statuses', 'my_new_wc_order_statuses' );
 // Register in wc_order_statuses.
 function my_new_wc_order_statuses( $order_statuses ) {
     $order_statuses['wc-approved'] = _x( 'Approved', 'Order status', 'woocommerce' );
-	$order_statuses['wc-approved-cheaper-deal'] = _x( 'Approved (Cheaper Deal)', 'Order status', 'woocommerce' );
+	$order_statuses['wc-cheaper'] = _x( 'Approved (Cheaper Deal)', 'Order status', 'woocommerce' );
 	$order_statuses['wc-declined'] = _x( 'Declined', 'Order status', 'woocommerce' );
 
     return $order_statuses;
