@@ -170,12 +170,6 @@ function dlay_payment_init(){
 					$object->product_name = $item->get_name();
 					$object->product_image = wp_get_attachment_url( $product->get_image_id() );
 					$object->product_code = $product->get_sku();
-					$fee = intval($product->get_attribute( 'monthly_fee' ));
-					$object->monthly_fee = $fee;
-					
-					$monthly_fee += $fee;
-					
-					array_push($products,$object);
 					
 					//check if this is a variation
 					if ( 'variation' === $product->get_type() ) {
@@ -188,13 +182,23 @@ function dlay_payment_init(){
 									$longest_period = intval($value);
 								}
 							}
+							if ( 'monthly_fee' === $key ) {
+								$fee = intval($value);
+								$object->monthly_fee = $fee;
+							}
 						}
 					}else{
 						$value = $product->get_attribute( 'period' );
 						if(intval($value) > $longest_period){
 							$longest_period = intval($value);
+							$fee = intval($product->get_attribute( 'monthly_fee' ));
+							$object->monthly_fee = $fee;
 						}
 					}
+					
+					$monthly_fee += $fee;
+					
+					array_push($products,$object);
 				}
 					
                 // Construct variables for post
