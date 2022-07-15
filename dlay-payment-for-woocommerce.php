@@ -159,47 +159,30 @@ function dlay_payment_init(){
                 $order = wc_get_order( $order_id );
 				$items = $order->get_items();
 				$products = array();
+				$product_codes = array();
 				$longest_period = 1;
 				$product_name = "";
 				$product_url = "";
 				$monthly_fee = 0;
-				
 					
 				foreach ( $items as $item ) {
 					$object = new stdClass();
+					$product_obj = new stdClass();
 					$product = $item->get_product();
 					$object->product_name = $item->get_name();
 					$object->product_image = wp_get_attachment_url( $product->get_image_id() );
 					$object->product_code = $product->get_sku();
+					$object->monthly_fee = get_post_meta($product->get_id(), '_dlay_monthly_amount', true);
+					$object->period = get_post_meta($product->get_id(), '_dlay_period', true);
+					$product_obj->product_code = $product->get_sku();
 					
-					//check if this is a variation
-					if ( 'variation' === $product->get_type() ) {
-						$variation_id = $item->get_variation_id();
-						$variation    = new WC_Product_Variation( $variation_id );
-						$attributes   = $variation->get_attributes();
-						foreach ( $attributes as $key => $value ) {
-							if ( 'period' === $key ) {
-								if(intval($value) > $longest_period){
-									$longest_period = intval($value);
-								}
-							}
-							if ( 'monthly_fee' === $key ) {
-								$fee = intval($value);
-								$object->monthly_fee = $fee;
-							}
-						}
-					}else{
-						$value = $product->get_attribute( 'period' );
-						if(intval($value) > $longest_period){
-							$longest_period = intval($value);
-							$fee = intval($product->get_attribute( 'monthly_fee' ));
-							$object->monthly_fee = $fee;
-						}
+					$monthly_fee += intval($object->monthly_fee) ;
+					if(intval($object->period) > $longest_period){
+						$longest_period = intval($object->period);
 					}
 					
-					$monthly_fee += $fee;
-					
 					array_push($products,$object);
+					array_push($product_codes,$product_obj);
 				}
 					
                 // Construct variables for post
@@ -221,6 +204,7 @@ function dlay_payment_init(){
 					'rental'			=> $this->get_option( 'rental' ),
 					'api'				=> $this->api,
 					'products'			=> json_encode($products),
+					'product_codes'		=> json_encode($product_codes),
 					'monthly_fee'		=> $monthly_fee
                 );
 				
@@ -415,4 +399,56 @@ function my_new_wc_order_statuses( $order_statuses ) {
 }
 add_filter('acf/settings/remove_wp_meta_box', '__return_false');
 
- 
+// product fields
+
+// The code for displaying WooCommerce Product Custom Fields
+add_action( 'woocommerce_product_options_general_product_data', 'woocommerce_product_custom_fields' ); 
+// Following code Saves  WooCommerce Product Custom Fields
+add_action( 'woocommerce_process_product_meta', 'woocommerce_product_custom_fields_save' );
+
+function woocommerce_product_custom_fields () {
+global $woocommerce, $post;
+echo '<div class=" product_custom_field ">';
+// This function has the logic of creating custom field
+
+woocommerce_wp_text_input(
+    array(
+        'id' => '_dlay_monthly_amount',
+        'placeholder' => '',
+        'label' => __('DLAY Monthly price (R)', 'woocommerce'),
+        'type' => 'number',
+        'custom_attributes' => array(
+            'step' => 'any',
+            'min' => '0'
+        )
+    )
+);
+	
+woocommerce_wp_text_input(
+    array(
+        'id' => '_dlay_period',
+        'placeholder' => '',
+        'label' => __('DLAY Period (Months)', 'woocommerce'),
+        'type' => 'number',
+        'custom_attributes' => array(
+            'step' => 'any',
+            'min' => '0'
+        )
+    )
+);
+echo '</div>';
+}
+
+function woocommerce_product_custom_fields_save($post_id)
+{
+    $woocommerce_dlay_monthly_amount = $_POST['_dlay_monthly_amount'];
+    if (!empty($woocommerce_dlay_monthly_amount))
+        update_post_meta($post_id, '_dlay_monthly_amount', esc_attr($woocommerce_dlay_monthly_amount));
+	
+	$woocommerce_dlay_period = $_POST['_dlay_period'];
+    if (!empty($woocommerce_dlay_period))
+        update_post_meta($post_id, '_dlay_period', esc_attr($woocommerce_dlay_period));
+
+}
+
+
