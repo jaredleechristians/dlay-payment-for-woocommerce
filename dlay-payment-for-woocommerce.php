@@ -80,6 +80,7 @@ function dlay_payment_init(){
 				}
 				$order->add_order_note( $content );
 				$order->update_meta_data( 'serial', "" );
+				$order->update_meta_data( 'iccid', "" );
 				$order->update_meta_data( 'ammacom_id', $json->ammacom_id );
 				$order->update_meta_data( 'transaction_id', $json->transaction_id );
 				$order->update_meta_data( 'setup_status', $json->setup_status );
@@ -299,18 +300,46 @@ add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'woocommerce_d
 
 // define the woocommerce_order_status_changed callback 
 function action_woocommerce_order_status_changed($order_id, $old_status, $new_status) {
+
 	if ( $new_status == "completed" ) {
+		$order = wc_get_order( $order_id );
+		$transaction_id = $order->get_meta("transaction_id");
+		$ammacom_id = $order->get_meta("ammacom_id");
+		$merchant_code = $order->get_meta("merchant_code");
+		$api = $order->get_meta("api") . "/server/api/conc-sub-setup";
+		$status = "COMPLETE";
+		$json = json_encode(array("transaction_id"=>$transaction_id,
+					  "ammacom_id"=>$ammacom_id,
+					  "merchant_code"=>$merchant_code,
+					  "status"=>$status,"api"=>$api));
+		$url = "https://pay.dlay.co.za/complete/"; # payment conclude
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, $url);
+		curl_setopt( $ch, CURLOPT_POSTFIELDS, $json );
+		curl_setopt( $ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json','Accept: application/json'));
+		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		$result = curl_exec($ch);
+		if($result != null){
+			$order->add_order_note( $result );
+		}else{
+			$order->add_order_note( curl_error($ch));
+		}
+		curl_close($ch);
 		
+    }elseif ( $new_status == "out_for_delivery" ) {
 		$order = wc_get_order( $order_id );
 		$transaction_id = $order->get_meta("transaction_id");
 		$ammacom_id = $order->get_meta("ammacom_id");
 		$merchant_code = $order->get_meta("merchant_code");
 		$serial = $order->get_meta("serial");
+		$iccid = $order->get_meta("iccid");
 		$api = $order->get_meta("api") . "/server/api/conc-sub-setup";
-		$status = "COMPLETE";
+		$status = "INCOMPLETE";
 		$json = json_encode(array("transaction_id"=>$transaction_id,
 					  "ammacom_id"=>$ammacom_id,
 					  "serial" => $serial,
+					  "iccid" => $iccid,
 					  "merchant_code"=>$merchant_code,
 					  "status"=>$status,"api"=>$api));
 		
@@ -319,12 +348,19 @@ function action_woocommerce_order_status_changed($order_id, $old_status, $new_st
 		curl_setopt( $ch, CURLOPT_POSTFIELDS, $json );
 		curl_setopt( $ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json','Accept: application/json'));
 		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 		$result = curl_exec($ch);
 		curl_close($ch);
-		$order->add_order_note( $result );
+		if($result != null){
+			$order->add_order_note( $result );
+		}else{
+			$order->add_order_note( curl_error($ch));
+		}
+		curl_close($ch);
     }
 }; 
 add_action( 'woocommerce_order_status_changed', 'action_woocommerce_order_status_changed', 10, 4 );
+
 
 add_action( 'init', 'register_my_new_order_statuses' );
 
@@ -355,6 +391,15 @@ function register_my_new_order_statuses() {
         'show_in_admin_status_list' => true,
         'label_count'               => _n_noop( 'Declined<span class="count">(%s)</span>', 'Declined<span class="count">(%s)</span>', 'woocommerce' )
     ) );
+	
+	register_post_status( 'wc-out_for_delivery', array(
+        'label'                     => _x( 'Out for Delivery', 'Order status', 'woocommerce' ),
+        'public'                    => true,
+        'exclude_from_search'       => false,
+        'show_in_admin_all_list'    => true,
+        'show_in_admin_status_list' => true,
+        'label_count'               => _n_noop( 'Out for Delivery <span class="count">(%s)</span>', 'Out for Delivery<span class="count">(%s)</span>', 'woocommerce' )
+    ) );
 }
 
 add_filter( 'wc_order_statuses', 'my_new_wc_order_statuses' );
@@ -364,6 +409,7 @@ function my_new_wc_order_statuses( $order_statuses ) {
     $order_statuses['wc-approved'] = _x( 'Approved', 'Order status', 'woocommerce' );
 	$order_statuses['wc-cheaper'] = _x( 'Approved (Cheaper Deal)', 'Order status', 'woocommerce' );
 	$order_statuses['wc-declined'] = _x( 'Declined', 'Order status', 'woocommerce' );
+	$order_statuses['wc-out_for_delivery'] = _x( 'Out for Delivery', 'Order status', 'woocommerce' );
 
     return $order_statuses;
 }
