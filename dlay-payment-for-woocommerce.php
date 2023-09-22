@@ -5,7 +5,7 @@
 * Author Name: Jared Christians
 * Author URI: https://www.linkedin.com/in/jaredchristians/
 * Description: Allows for DLAY payment system
-* Version: 0.1.2
+* Version: 1.0.0
  */
 
 if( ! in_array('woocommerce/woocommerce.php', apply_filters('active_plugins',get_option('active_plugins')))) return;
@@ -32,7 +32,7 @@ function dlay_payment_init(){
                 );
 
                 $this->url = 'https://pay.dlay.co.za'; // payment processor
-				//$this->url = 'https://dlay-sandbox.robotweb.co.za'; // robotweb sandbox payment processor
+				//$this->url = 'http://localhost'; // sandbox payment processor
                 $this->response_url = add_query_arg( 'wc-api', 'Dlay_Handler', home_url( '/' ) );
 
                 add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
@@ -106,12 +106,29 @@ function dlay_payment_init(){
 						'type'        => 'checkbox',
 						'description' => __( 'Place the payment gateway in development mode.', 'dlay-pay-woo' ),
 						'default'     => 'true',
-                        ),'rental' => array(
+                        ),
+
+						'rental' => array(
 						'title'       => __( 'Enable Rental', 'dlay-pay-woo' ),
 						'type'        => 'checkbox',
 						'description' => __( 'Place the payment gateway in rental mode.', 'dlay-pay-woo' ),
 						'default'     => 'false',
                         ),
+
+						'disableperiod' => array(
+							'title'       => __( 'Disable Rental Period', 'dlay-pay-woo' ),
+							'type'        => 'checkbox',
+							'description' => __( 'Disable Rental Period on pay.dlay.co.za', 'dlay-pay-woo' ),
+							'default'     => 'false',
+						),
+
+						'merchantlogo' => array(
+							'title'       => __( 'Merchant Logo', 'dlay-pay-woo' ),
+							'type'        => 'checkbox',
+							'description' => __( 'Display Merchant logo on pay.dlay.co.za', 'dlay-pay-woo' ),
+							'default'     => 'false',
+						),
+
                         'title' => array(
                             'title'       => __( 'Title', 'dlay-pay-woo' ),
                             'type'        => 'text',
@@ -216,6 +233,8 @@ function dlay_payment_init(){
                     'notify_url'       	=> $this->response_url . "&key=".$order->get_order_key(),
 					'sandbox'			=> $this->get_option( 'sandbox' ),
 					'rental'			=> $this->get_option( 'rental' ),
+					'disableperiod'		=> $this->get_option( 'disableperiod' ),
+					'merchantlogo'		=> $this->get_option( 'merchantlogo' ),
 					'api'				=> $this->api,
 					'products'			=> json_encode($products),
 					'product_codes'		=> json_encode($product_codes),
@@ -548,7 +567,8 @@ function woo_show_checkout_text(){
 		}
 		
 	}
-	echo '<div id="dlay_checkout_notice" class="woo" style="display:flex;align-items:center">
+		if($longest_period < 900){
+			echo '<div id="dlay_checkout_notice" class="woo" style="display:flex;align-items:center">
 			<p>Or split into '
 			.$longest_period.'x '
 			.'<b>interest-free</b> payments of <b>R'
@@ -556,6 +576,8 @@ function woo_show_checkout_text(){
 			<p><img style="padding: 10px" src="'
 			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png"'
 			.'</p></div>';
+		}
+	
 }
  
 function woo_show_product_text() {
@@ -592,7 +614,7 @@ function woo_show_product_text() {
 	}else{
 		$payment = get_post_meta($product->get_id(), '_dlay_monthly_amount', true);
 		$period = get_post_meta($product->get_id(), '_dlay_period', true);
-		if($payment != "" && $period != ""){
+		if($payment != "" && $period != "" && $period < 900){
 			echo '<div class="woo" style="display:flex;align-items:center">
 			<p>Or split into '
 			.$period.'x <b>interest-free</b> payments of <b>R'
