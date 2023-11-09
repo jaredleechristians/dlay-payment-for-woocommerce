@@ -22,7 +22,7 @@ function dlay_payment_init(){
                 $this->init_form_fields();
                 $this->init_settings();
                 $this->has_fields = false;
-                $this->icon = WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png';
+                $this->icon = WP_PLUGIN_URL . '/dlay-payment-for-woocommerce/assets/images/icon.png';
                 $this->title = $this->get_option( 'title' );
                 $this->description = $this->get_option( 'description' );
                 $this->available_countries  = array( 'ZA' );
@@ -194,7 +194,7 @@ function dlay_payment_init(){
 					
 					if ( $product->is_type( 'variable' ) ) {
 						$product_variations = $product->get_available_variations();
-						foreach($variations as $index => $data){
+						foreach($product_variations as $index => $data){
 							$object->monthly_fee = $data[ '_dlay_monthly_amount' ];
 							$object->period = $data[ '_dlay_period' ];
 						}
@@ -474,12 +474,18 @@ echo '</div>';
 function woocommerce_product_custom_fields_save($post_id)
 {
     $woocommerce_dlay_monthly_amount = $_POST['_dlay_monthly_amount'];
-    if (!empty($woocommerce_dlay_monthly_amount))
+    if (!empty($woocommerce_dlay_monthly_amount)){
         update_post_meta($post_id, '_dlay_monthly_amount', esc_attr($woocommerce_dlay_monthly_amount));
+    }else{
+    	delete_post_meta($post_id, '_dlay_monthly_amount');
+    }
 	
 	$woocommerce_dlay_period = $_POST['_dlay_period'];
-    if (!empty($woocommerce_dlay_period))
+    if (!empty($woocommerce_dlay_period)){
         update_post_meta($post_id, '_dlay_period', esc_attr($woocommerce_dlay_period));
+    }else{
+    	delete_post_meta($post_id, '_dlay_period');
+    }
 
 }
 
@@ -553,7 +559,7 @@ function woo_show_checkout_text(){
 		//print_r($product);
 		if ( $product->is_type( 'variable' ) ) {
 			$product_variations = $product->get_available_variations();
-			foreach($variations as $index => $data){
+			foreach($product_variations as $index => $data){
 				$monthly_fee = $data[ '_dlay_monthly_amount' ];
 				$period = $data[ '_dlay_period' ];
 			}
@@ -565,6 +571,9 @@ function woo_show_checkout_text(){
 		if($longest_period < $period){
 			$longest_period = $period;
 		}
+		if($longest_period == 0 || $longest_period == ''){
+			return;
+		}
 		
 	}
 		if($longest_period < 900){
@@ -574,7 +583,7 @@ function woo_show_checkout_text(){
 			.'<b>interest-free</b> payments of <b>R'
 			.round($cart_total/$longest_period,2).'</b></p>
 			<p><img style="padding: 10px" src="'
-			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png"'
+			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce/assets/images/icon.png"'
 			.'</p></div>';
 		}
 	
@@ -603,14 +612,16 @@ function woo_show_product_text() {
 			}
 			
         }
-		echo '<div class="woo" style="display:flex;align-items:center">
-			<p>Or split into '
-			//.$lowest_period.'x '
-			.'<b>interest-free</b> payments from <b>R'
-			.$lowest_monthly.'</b></p>
-			<p><img style="padding: 10px" src="'
-			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png"'
-			.'</p></div>';
+        if($lowest_monthly != "" && $lowest_period != ""){
+			echo '<div class="woo" style="display:flex;align-items:center">
+				<p>Or split into '
+				//.$lowest_period.'x '
+				.'<b>interest-free</b> payments from <b>R'
+				.$lowest_monthly.'</b></p>
+				<p><img style="padding: 10px" src="'
+				.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce/assets/images/icon.png"'
+				.'</p></div>';
+		}
 	}else{
 		$payment = get_post_meta($product->get_id(), '_dlay_monthly_amount', true);
 		$period = get_post_meta($product->get_id(), '_dlay_period', true);
@@ -620,7 +631,7 @@ function woo_show_product_text() {
 			.$period.'x <b>interest-free</b> payments of <b>R'
 			.$payment.'</b></p>
 			<p><img style="padding: 10px" src="'
-			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png"'
+			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce/assets/images/icon.png"'
 			.'</p></div>';
 		}
 	}
