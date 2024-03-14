@@ -5,7 +5,7 @@
 * Author Name: Jared Christians
 * Author URI: https://www.linkedin.com/in/jaredchristians/
 * Description: Allows for DLAY payment system
-* Version: 1.0.0
+* Version: 1.5.0
  */
 
 if( ! in_array('woocommerce/woocommerce.php', apply_filters('active_plugins',get_option('active_plugins')))) return;
@@ -30,9 +30,14 @@ function dlay_payment_init(){
                 $this->supports = array(
                     'products',
                 );
+				$this->payment_url = $this->get_option('payment_url');
 
-                $this->url = 'https://pay.dlay.co.za'; // payment processor
-				//$this->url = 'http://localhost'; // sandbox payment processor
+				if($this->payment_url == ""){
+					$this->url = 'https://pay.dlay.co.za'; // payment processor
+				}else{
+					$this->url = $this->payment_url;
+				}
+				//$this->url = 'http://localhost:8008'; // localhost development processor
                 $this->response_url = add_query_arg( 'wc-api', 'Dlay_Handler', home_url( '/' ) );
 
                 add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
@@ -154,6 +159,12 @@ function dlay_payment_init(){
                             'type'        => 'text',
                             'description' => __( 'This is the merchant code, received from DLAY.', 'dlay-pay-woo' ),
                             'default'     => '',
+						),
+                        'payment_url' => array(
+                            'title'       => __( 'Payment URL', 'dlay-pay-woo' ),
+                            'type'        => 'text',
+                            'description' => __( 'This is the merchant payment url, received from DLAY.', 'dlay-pay-woo' ),
+                            'default'     => '',
                         )
                     )
                 );
@@ -194,7 +205,7 @@ function dlay_payment_init(){
 					
 					if ( $product->is_type( 'variable' ) ) {
 						$product_variations = $product->get_available_variations();
-						foreach($product_variations as $index => $data){
+						foreach($variations as $index => $data){
 							$object->monthly_fee = $data[ '_dlay_monthly_amount' ];
 							$object->period = $data[ '_dlay_period' ];
 						}
@@ -476,16 +487,10 @@ function woocommerce_product_custom_fields_save($post_id)
     $woocommerce_dlay_monthly_amount = $_POST['_dlay_monthly_amount'];
     if (!empty($woocommerce_dlay_monthly_amount)){
         update_post_meta($post_id, '_dlay_monthly_amount', esc_attr($woocommerce_dlay_monthly_amount));
-    }else{
-    	delete_post_meta($post_id, '_dlay_monthly_amount');
-    }
 	
 	$woocommerce_dlay_period = $_POST['_dlay_period'];
-    if (!empty($woocommerce_dlay_period)){
+    if (!empty($woocommerce_dlay_period))
         update_post_meta($post_id, '_dlay_period', esc_attr($woocommerce_dlay_period));
-    }else{
-    	delete_post_meta($post_id, '_dlay_period');
-    }
 
 }
 
@@ -559,7 +564,7 @@ function woo_show_checkout_text(){
 		//print_r($product);
 		if ( $product->is_type( 'variable' ) ) {
 			$product_variations = $product->get_available_variations();
-			foreach($product_variations as $index => $data){
+			foreach($variations as $index => $data){
 				$monthly_fee = $data[ '_dlay_monthly_amount' ];
 				$period = $data[ '_dlay_period' ];
 			}
@@ -571,9 +576,6 @@ function woo_show_checkout_text(){
 		if($longest_period < $period){
 			$longest_period = $period;
 		}
-		if($longest_period == 0 || $longest_period == ''){
-			return;
-		}
 		
 	}
 		if($longest_period < 900){
@@ -583,7 +585,7 @@ function woo_show_checkout_text(){
 			.'<b>interest-free</b> payments of <b>R'
 			.round($cart_total/$longest_period,2).'</b></p>
 			<p><img style="padding: 10px" src="'
-			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce/assets/images/icon.png"'
+			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png"'
 			.'</p></div>';
 		}
 	
@@ -612,16 +614,14 @@ function woo_show_product_text() {
 			}
 			
         }
-        if($lowest_monthly != "" && $lowest_period != ""){
-			echo '<div class="woo" style="display:flex;align-items:center">
-				<p>Or split into '
-				//.$lowest_period.'x '
-				.'<b>interest-free</b> payments from <b>R'
-				.$lowest_monthly.'</b></p>
-				<p><img style="padding: 10px" src="'
-				.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce/assets/images/icon.png"'
-				.'</p></div>';
-		}
+		echo '<div class="woo" style="display:flex;align-items:center">
+			<p>Or split into '
+			//.$lowest_period.'x '
+			.'<b>interest-free</b> payments from <b>R'
+			.$lowest_monthly.'</b></p>
+			<p><img style="padding: 10px" src="'
+			.WP_PLUGIN_URL . '/dlay-payment-for-woocommerce-main/assets/images/icon.png"'
+			.'</p></div>';
 	}else{
 		$payment = get_post_meta($product->get_id(), '_dlay_monthly_amount', true);
 		$period = get_post_meta($product->get_id(), '_dlay_period', true);
